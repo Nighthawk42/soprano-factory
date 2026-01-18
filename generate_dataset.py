@@ -44,7 +44,7 @@ def main():
     print(f"Loading model onto {device}.")
     encoder = Encoder().to(device)
     encoder_path = hf_hub_download(repo_id='ekwek/Soprano-Encoder', filename='encoder.pth')
-    encoder.load_state_dict(torch.load(encoder_path, map_location=device))
+    encoder.load_state_dict(torch.load(encoder_path, map_location=device), strict=False)
     encoder.eval()
     print("Model loaded.")
 
