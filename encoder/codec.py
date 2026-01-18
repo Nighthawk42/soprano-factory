@@ -14,10 +14,7 @@ def safe_log(x: torch.Tensor, clip_val: float = 5e-3) -> torch.Tensor:
 
 
 class SimpleMLP(nn.Module):
-    def __init__(self,
-        dim,
-        intermediate_dim,
-    ):
+    def __init__(self, dim, intermediate_dim):
         super().__init__()
         self.pwconv1 = nn.Linear(dim, intermediate_dim)
         self.act = nn.GELU()
@@ -31,14 +28,7 @@ class SimpleMLP(nn.Module):
 
 
 class ConvNeXtBlock(nn.Module):
-    """ConvNeXt Block adapted from https://github.com/facebookresearch/ConvNeXt to 1D audio signal.
-
-    Args:
-        dim (int): Number of input channels.
-        intermediate_dim (int): Dimensionality of the intermediate layer.
-        layer_scale_init_value (float, optional): Initial value for the layer scale. None means no scaling.
-            Defaults to None.
-    """
+    """ConvNeXt Block adapted from https://github.com/facebookresearch/ConvNeXt to 1D audio signal."""
 
     def __init__(
         self,
@@ -48,7 +38,7 @@ class ConvNeXtBlock(nn.Module):
         dw_kernel_size: int = 7,
     ):
         super().__init__()
-        self.dwconv = nn.Conv1d(dim, dim, kernel_size=dw_kernel_size, padding=dw_kernel_size//2, groups=dim)  # depthwise conv
+        self.dwconv = nn.Conv1d(dim, dim, kernel_size=dw_kernel_size, padding=dw_kernel_size//2, groups=dim)
         self.norm = nn.LayerNorm(dim, eps=1e-6)
         self.mlp = SimpleMLP(dim, intermediate_dim)
         self.gamma = (
@@ -72,17 +62,6 @@ class ConvNeXtBlock(nn.Module):
 
 
 class VocosBackbone(nn.Module):
-    """
-    Vocos backbone module built with ConvNeXt blocks.
-
-    Args:
-        input_channels (int): Number of input features channels.
-        dim (int): Hidden dimension of the model.
-        intermediate_dim (int): Intermediate dimension used in ConvNeXtBlock.
-        num_layers (int): Number of ConvNeXtBlock layers.
-        layer_scale_init_value (float, optional): Initial value for layer scaling.
-    """
-
     def __init__(
         self,
         input_channels: int,
@@ -124,16 +103,7 @@ class VocosBackbone(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            x (Tensor): Input tensor of shape (B, C, L), where B is the batch size,
-                        C denotes output features, and L is the sequence length.
-
-        Returns:
-            Tensor: Output of shape (B, L, H), where B is the batch size, L is the sequence length,
-                    and H denotes the model dimension.
-        """
-        x = self.embed(x) # (B, C, L)
+        x = self.embed(x)
         x = self.norm(x.transpose(1, 2))
         x = x.transpose(1, 2)
         for conv_block in self.convnext:
@@ -185,17 +155,19 @@ class Encoder(nn.Module):
 
     def encode(self, x):
         x = self.encoder(x)
+        # Sequence slicing for downsampling
         x = x[:, :, ::self.downsample_scale]
-        x = x.transpose(1,2)
+        x = x.transpose(1, 2)
         x = self.downsampler(x)
         x = self.quant(x)
         return x
 
     def preprocess(self, audio):
-        if audio.dim() == 2: # raw audio
+        # Ensure mel_spec is on the same device as the input audio
+        if audio.dim() == 2: # raw audio (B, T)
             x = self.mel_spec(audio)
             x = safe_log(x)
-        elif audio.dim() == 3: # mel spectrogram
+        elif audio.dim() == 3: # mel spectrogram (B, C, T)
             x = audio
         return x
 

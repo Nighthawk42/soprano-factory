@@ -33,6 +33,20 @@
 
 ## Installation
 
+This project uses **[uv](https://github.com/astral-sh/uv)** for high-performance dependency management.
+
+```bash
+git clone [https://github.com/ekwek1/soprano-factory.git](https://github.com/ekwek1/soprano-factory.git)
+cd soprano-factory
+
+# Install dependencies (CPU)
+uv sync
+
+# Install dependencies (CUDA 12.6)
+uv sync --extra gpu
+
+## Manual Installation
+
 ```bash
 git clone https://github.com/ekwek1/soprano-factory.git
 cd soprano-factory

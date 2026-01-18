@@ -21,7 +21,7 @@ from huggingface_hub import hf_hub_download
 
 from encoder.codec import Encoder
 
-
+# Constants
 SAMPLE_RATE = 32000
 SEED = 42
 VAL_PROP = 0.1
@@ -39,35 +39,50 @@ def get_args():
 def main():
     args = get_args()
     input_dir = args.input_dir
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    print("Loading model.")
-    encoder = Encoder()
+    print(f"Loading model onto {device}.")
+    encoder = Encoder().to(device)
     encoder_path = hf_hub_download(repo_id='ekwek/Soprano-Encoder', filename='encoder.pth')
-    encoder.load_state_dict(torch.load(encoder_path))
+    encoder.load_state_dict(torch.load(encoder_path, map_location=device))
+    encoder.eval()
     print("Model loaded.")
-
 
     print("Reading metadata.")
     files = []
-    with open(f'{input_dir}/metadata.txt', encoding='utf-8') as f:
-        data = f.read().split('\n')
+    metadata_path = input_dir / 'metadata.txt'
+    with open(metadata_path, encoding='utf-8') as f:
+        data = f.read().strip().split('\n')
         for line in data:
+            if '|' not in line:
+                continue
             filename, transcript = line.split('|', maxsplit=1)
             files.append((filename, transcript))
     print(f'{len(files)} samples located in directory.')
 
-    print("Encoding audio.")
+    print(f"Encoding audio on {device}...")
     dataset = []
-    for sample in tqdm(files):
-        filename, transcript = sample
-        sr, audio = wavfile.read(f'{input_dir}/wavs/{filename}.wav')
-        audio = torch.from_numpy(audio)
+    for filename, transcript in tqdm(files):
+        wav_path = input_dir / 'wavs' / f'{filename}.wav'
+        
+        try:
+            sr, audio = wavfile.read(wav_path)
+        except FileNotFoundError:
+            continue
+            
+        # Convert to float tensor for torchaudio/encoder compatibility
+        audio = torch.from_numpy(audio).float()
+        
         if sr != SAMPLE_RATE:
             audio = torchaudio.functional.resample(audio, sr, SAMPLE_RATE)
-        audio = audio.unsqueeze(0)
+        
+        # Prepare for encoder
+        audio = audio.unsqueeze(0).to(device)
         with torch.no_grad():
             audio_tokens = encoder(audio)
-        dataset.append([transcript, audio_tokens.squeeze(0).tolist()])
+        
+        # Store results (move back to CPU for JSON serialization)
+        dataset.append([transcript, audio_tokens.squeeze(0).cpu().tolist()])
 
     print("Generating train/test splits.")
     random.seed(SEED)
@@ -79,12 +94,11 @@ def main():
     print(f'# val samples: {len(val_dataset)}')
 
     print("Saving datasets.")
-    with open(f'{input_dir}/train.json', 'w', encoding='utf-8') as f:
+    with open(input_dir / 'train.json', 'w', encoding='utf-8') as f:
         json.dump(train_dataset, f, indent=2)
-    with open(f'{input_dir}/val.json', 'w', encoding='utf-8') as f:
+    with open(input_dir / 'val.json', 'w', encoding='utf-8') as f:
         json.dump(val_dataset, f, indent=2)
     print("Datasets saved.")
-
 
 if __name__ == '__main__':
     main()

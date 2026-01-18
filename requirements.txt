@@ -6,3 +6,4 @@ torch
 torchaudio
 tqdm
 transformers
+pyyaml

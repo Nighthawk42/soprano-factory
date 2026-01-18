@@ -1,0 +1,35 @@
+[project]
+name = "soprano-factory"
+version = "0.1.0"
+dependencies = [
+    "transformers",
+    "numpy",
+    "scipy",
+    "tqdm",
+    "einops",
+    "pyyaml",
+    "huggingface-hub",
+    "torch",
+    "torchaudio",
+]
+
+[project.optional-dependencies]
+# Use uv sync --extra gpu to install CUDA support
+gpu = [
+    "torch",
+    "torchaudio",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+# Only use the CUDA index when the 'gpu' extra is requested
+torch = [
+  { index = "pytorch-cu126", extra = "gpu" },
+]
+torchaudio = [
+  { index = "pytorch-cu126", extra = "gpu" },
+]
